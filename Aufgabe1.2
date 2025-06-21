@@ -1,0 +1,105 @@
+#!/bin/bash
+
+CONFIG_FILE="app.conf"
+LOG_FILE="generator.log"
+TEMP_FILE="temp.dat"
+
+exec 3> "$LOG_FILE" || { echo "Fehler beim Öffnen der Log-Datei"; exit 1; }
+log_fd=3
+echo "[$(date '+%F %T')] Konfigurations-Dateideskriptor $log_fd erfolgreich geöffnet" >&$log_fd
+
+exec 4> "$CONFIG_FILE" || { echo "Fehler beim Öffnen der Konfigurationsdatei"; exit 1; }
+config_fd=4
+echo "[$(date '+%F %T')] Konfigurations-Dateideskriptor $config_fd erfolgreich geöffnet" >&$log_fd
+
+exec 5> "$TEMP_FILE" || { echo "Fehler beim Öffnen der temporären Datei"; exit 1; }
+temp_fd=5
+echo "[$(date '+%F %T')] Temporärer Dateideskriptor $temp_fd erfolgreich geöffnet" >&$log_fd
+
+echo "[$(date '+%F %T')] Alle Dateideskriptoren erfolgreich geöffnet" >&$log_fd
+echo "[$(date '+%F %T')] === Konfigurationsgenerierung gestartet ===" >&$log_fd
+
+log_message() {
+    echo "[$(date '+%F %T')] $1" >&$log_fd
+}
+
+create_section() {
+    local section_name=$1
+    log_message "Erstelle Konfigurationsabschnitt: $section_name"
+    case "$section_name" in
+        SERVER)
+            cat >&$config_fd <<EOF
+
+[SERVER]
+host = localhost
+port = 8080
+protocol = HTTP/1.1
+timeout = 30
+max_connections = 100
+enable_ssl = true
+EOF
+            ;;
+        DATABASE)
+            cat >&$config_fd <<EOF
+
+[DATABASE]
+host = localhost
+port = 5432
+database = myapp
+username = appuser
+connection_pool_size = 10
+connection_timeout = 15
+ssl_mode = require
+EOF
+            ;;
+        LOGGING)
+            cat >&$config_fd <<EOF
+
+[LOGGING]
+level = INFO
+log_file = /var/log/myapp.log
+max_file_size = 10MB
+backup_count = 5
+format = %(asctime)s - %(name)s - %(levelname)s - %(message)s
+enable_console = true
+EOF
+            ;;
+        *)
+            log_message "Unbekannter Abschnitt: $section_name"
+            ;;
+    esac
+    log_message "Abschnitt $section_name erfolgreich erstellt"
+}
+
+{
+cat <<EOF
+# Automatisch generierte Konfigurationsdatei
+# Erstellt am: $(date)
+# Generator: config_generator.sh
+#
+# WARNUNG: Diese Datei wurde automatisch generiert.
+# Manuelle Änderungen können bei der nächsten Generierung überschrieben werden.
+EOF
+} >&$config_fd
+
+log_message "Konfigurationsdatei-Header erstellt"
+
+echo "Beispielhafte temporäre Benutzereingabe gespeichert" >&$temp_fd
+log_message "Benutzereingaben in temporärer Datei gespeichert"
+
+create_section "SERVER"
+create_section "DATABASE"
+create_section "LOGGING"
+
+{
+cat <<EOF
+
+# Ende der Konfigurationsdatei
+# Für weitere Informationen siehe: $LOG_FILE
+EOF
+} >&$config_fd
+
+log_message "Konfigurationsdatei erfolgreich erstellt: $CONFIG_FILE"
+log_message "=== Konfigurationsgenerierung abgeschlossen ==="
+
+clean

@@ -1,0 +1,127 @@
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+void print_usage() {
+    printf("Usage: file_tool <operation> <arguments>\n\n");
+    printf("Operations:\n");
+    printf("  info <file>            : Show information about the file (size, permissions, modification date)\n");
+    printf("  cat <file>             : Display the contents of a file\n");
+    printf("  append <file> <text>   : Append text to the file\n");
+    printf("  truncate <file> <size> : Truncate the file to the specified size\n");
+    printf("  -h or --help           : Display this help message\n");
+}
+
+void show_file_info(const char *filename) {
+    struct stat file_stat;
+    if (stat(filename, &file_stat) == -1) {
+        perror("Error retrieving file info");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("File: %s\n", filename);
+    printf("Size: %ld bytes\n", file_stat.st_size);
+    printf("Permissions: %o\n", file_stat.st_mode & 0777);
+    printf("Last modified: %s", ctime(&file_stat.st_mtime));
+}
+
+void display_file_content(const char *filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        perror("Error opening file");
+        exit(EXIT_FAILURE);
+    }
+
+    char buffer[4096];
+    ssize_t bytes_read;
+    while ((bytes_read = read(fd, buffer, sizeof(buffer))) > 0) {
+        if (write(STDOUT_FILENO, buffer, bytes_read) != bytes_read) {
+            perror("Error writing file content to stdout");
+            close(fd);
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    if (bytes_read == -1) {
+        perror("Error reading file");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    close(fd);
+}
+
+void append_to_file(const char *filename, const char *text) {
+    int fd = open(filename, O_WRONLY | O_APPEND);
+    if (fd == -1) {
+        perror("Error opening file for appending");
+        exit(EXIT_FAILURE);
+    }
+
+    ssize_t bytes_written = write(fd, text, strlen(text));
+    if (bytes_written == -1) {
+        perror("Error writing to file");
+        close(fd);
+        exit(EXIT_FAILURE);
+    }
+
+    close(fd);
+    printf("Text appended to file: %s\n", filename);
+}
+
+void truncate_file(const char *filename, off_t size) {
+    if (truncate(filename, size) == -1) {
+        perror("Error truncating file");
+        exit(EXIT_FAILURE);
+    }
+
+    printf("File truncated to size: %ld bytes\n", size);
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 2) {
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+        print_usage();
+        exit(EXIT_SUCCESS);
+    }
+
+    if (strcmp(argv[1], "info") == 0) {
+        if (argc != 3) {
+            print_usage();
+            exit(EXIT_FAILURE);
+        }
+        show_file_info(argv[2]);
+    } else if (strcmp(argv[1], "cat") == 0) {
+        if (argc != 3) {
+            print_usage();
+            exit(EXIT_FAILURE);
+        }
+        display_file_content(argv[2]);
+    } else if (strcmp(argv[1], "append") == 0) {
+        if (argc != 4) {
+            print_usage();
+            exit(EXIT_FAILURE);
+        }
+        append_to_file(argv[2], argv[3]);
+    } else if (strcmp(argv[1], "truncate") == 0) {
+        if (argc != 4) {
+            print_usage();
+            exit(EXIT_FAILURE);
+        }
+        off_t size = atoll(argv[3]);
+        truncate_file(argv[2], size);
+    } else {
+        print_usage();
+        exit(EXIT_FAILURE);
+    }
+
+    return 0;
+}

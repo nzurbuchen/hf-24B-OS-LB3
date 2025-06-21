@@ -1,0 +1,24 @@
+#!/bin/bash
+
+LOGFILE="$1"
+
+if [[ ! -f "$LOGFILE" ]]; then
+    echo "Fehler: Die angegebene Log-Datei '$LOGFILE' existiert nicht."
+    exit 1
+fi
+
+> errors.log
+> warnings.log
+> info.log
+
+tee >(grep "ERROR" > errors.log) \
+    >(grep "WARNING" > warnings.log) \
+    >(grep "INFO" > info.log) < "$LOGFILE" > /dev/null
+
+ERROR_COUNT=$(grep -c "ERROR" "$LOGFILE")
+WARNING_COUNT=$(grep -c "WARNING" "$LOGFILE")
+INFO_COUNT=$(grep -c "INFO" "$LOGFILE")
+
+echo "Anzahl der Fehler (ERROR): $ERROR_COUNT"
+echo "Anzahl der Warnungen (WARNING): $WARNING_COUNT"
+echo "Anzahl der Infos (INFO): $INFO_COUNT"
